@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 import os
 
-st.set_page_config(page_title="TNPSC AI Assistant", page_icon="🎤")
+st.set_page_config(page_title="TNPSC Assistant", page_icon="🎤")
 
 # --- SECURE API KEY ---
 if "GROQ_API_KEY" in st.secrets:
@@ -11,16 +11,15 @@ else:
     api_key = os.environ.get("GROQ_API_KEY")
 
 if not api_key:
-    st.error("Admin: Missing API Key")
+    st.error("Admin: Please add GROQ_API_KEY to Streamlit Secrets.")
     st.stop()
 
 client = Groq(api_key=api_key)
 
-# --- CHAT INTERFACE ---
 st.title("🎤 TNPSC Voice Assistant")
-st.write("Ask questions about TNPSC or generate a quiz!")
+st.info("Tap the box below and use your phone's keyboard microphone to speak!")
 
-# Initialize chat history if it doesn't exist
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -29,22 +28,29 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# User Input (This works with smartphone voice-to-text microphones)
-# When a user taps the microphone icon on their mobile keyboard, it fills this box
-if prompt := st.chat_input("Type or use your phone's mic to ask a question..."):
+# --- THE INPUT FIX ---
+# We use a container to keep the chat input at the bottom
+if prompt := st.chat_input("Ask about TNPSC (e.g., 'Who is the Governor?')"):
+    # Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Immediately show user message
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Generate AI response
     with st.chat_message("assistant"):
-        with st.spinner("AI is analyzing..."):
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": "You are a TNPSC tutor. Answer questions or create quizzes based on the user's input."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            full_response = response.choices[0].message.content
-            st.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+        with st.spinner("Thinking..."):
+            try:
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": "You are a TNPSC tutor. Provide clear, exam-oriented answers."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                answer = response.choices[0].message.content
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.error(f"Error: {e}")
